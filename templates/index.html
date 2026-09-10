@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="BUFF 与 Steam CS2 饰品价差观察器">
+  <title>饰差雷达 · CS2</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <div class="eyebrow"><span class="pulse"></span> LOCAL MARKET OBSERVER</div>
+        <h1>饰差雷达</h1>
+        <p>把 BUFF 买价换算成真实的 Steam 钱包成本，同时评估 7 天锁定期内的价格风险与脱手速度。</p>
+      </div>
+      <form id="scan-form" method="post" action="{{ url_for('scan') }}">
+        <button id="scan-button" type="submit"><span class="button-label">立即扫描</span><span class="button-icon">↗</span></button>
+      </form>
+    </header>
+
+    <section id="scan-loading" class="scan-loading" role="status" aria-live="polite" hidden>
+      <span class="spinner" aria-hidden="true"></span>
+      <div><strong>正在扫描实时市场…</strong><small>正在抓取 Steam 热榜20件并匹配 BUFF，通常需要 1–2 分钟，请不要重复点击。</small></div>
+      <span class="loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    </section>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}<div class="notice {{ category }}">{{ message }}</div>{% endfor %}
+    {% endwith %}
+
+    <section class="status-grid" aria-label="扫描状态">
+      <article><span>运行模式</span><strong>{{ '演示数据' if is_demo else '实时市场' }}</strong><small>{{ '无需 Cookie，可直接体验' if is_demo else 'BUFF + Steam CNY' }}</small></article>
+      <article><span>候选范围</span><strong>热榜 20 件</strong><small>候选池内按24h销量排序</small></article>
+      <article class="run-card"><span>最近扫描</span>{% if latest_run %}<strong><i class="run-dot run-{{ latest_run.status }}"></i>{{ latest_run.status_label }} · {{ latest_run.item_count }} 件</strong><small>{% if latest_run.finished_at_local %}{{ latest_run.finished_at_local }} 北京时间{% else %}扫描正在进行{% endif %}{% if latest_run.duration_seconds is not none %} · 耗时 {{ latest_run.duration_seconds }} 秒{% endif %}</small>{% if latest_run.status == 'failed' and latest_run.error %}<small class="run-error">{{ latest_run.error }}</small>{% endif %}{% else %}<strong>等待扫描</strong><small>还没有扫描记录</small>{% endif %}</article>
+      <article><span>排序逻辑</span><strong>风险成本 ↑</strong><small>价差 + 波动 + 流动性</small></article>
+    </section>
+
+    <section class="board">
+      <div class="board-head">
+        <div><span class="kicker">TOP 50</span><h2>当前价差机会</h2></div>
+        <div class="legend"><span><i class="dot grade-a"></i>A 强</span><span><i class="dot grade-b"></i>B 可看</span><span><i class="dot grade-c"></i>C 谨慎</span></div>
+      </div>
+      {% if quotes %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th># / 饰品</th><th>BUFF</th><th>Steam</th><th>预计平台扣费</th><th>到手利润</th><th>余额成本</th><th>当前收益</th><th>7日波幅</th><th>最大回撤</th><th>压力收益</th><th>价格稳定</th><th>24h销量</th><th>在售</th><th>脱手</th><th>评级</th></tr></thead>
+          <tbody>
+          {% for q in quotes %}
+            <tr>
+              <td><div class="item"><span class="rank">{{ '%02d'|format(loop.index) }}</span><span class="names"><strong>{{ q.chinese_name or q.market_hash_name }}</strong>{% if q.chinese_name and q.chinese_name != q.market_hash_name %}<small>{{ q.market_hash_name }}</small>{% endif %}</span></div></td>
+              <td>¥{{ '%.2f'|format(q.buff_price) }}</td>
+              <td>¥{{ '%.2f'|format(q.steam_price) }}{% if q.steam_source == 'search_usd_fx' %}<small class="samples">美元换算</small>{% endif %}</td>
+              <td class="fee">−¥{{ '%.2f'|format(q.platform_fee) }}<small class="samples">Steam 预计扣除</small></td>
+              <td class="{{ 'gain profit' if q.net_profit > 0 else 'loss profit' }}">{{ '+' if q.net_profit > 0 else '' }}¥{{ '%.2f'|format(q.net_profit) }}<small class="samples">到账 ¥{{ '%.2f'|format(q.steam_net) }}</small></td>
+              <td class="cost">{{ '%.1f'|format(q.balance_cost_rate * 100) }}%</td>
+              <td class="{{ 'gain' if q.balance_return > 0 else 'loss' }}">{{ '%+.1f'|format(q.balance_return * 100) }}%</td>
+              <td>{{ '%.1f'|format(q.range_7d * 100) }}%<small class="samples">{{ q.history_samples }}次</small></td>
+              <td class="{{ 'risk' if q.max_drawdown_7d > 0.08 else '' }}">{{ '%.1f'|format(q.max_drawdown_7d * 100) }}%</td>
+              <td class="{{ 'gain' if q.stress_return_7d is not none and q.stress_return_7d > 0 else 'loss' }}">{{ ('%+.1f'|format(q.stress_return_7d * 100) ~ '%') if q.stress_return_7d is not none else '—' }}</td>
+              <td><span class="signal signal-{{ q.stability_key }}">{{ q.stability }}</span></td>
+              <td>{{ q.steam_volume if q.steam_volume is not none else '—' }}</td>
+              <td>{{ q.steam_listings if q.steam_listings is not none else '—' }}</td>
+              <td><span class="signal signal-{{ q.liquidity_key }}">{{ q.liquidity }}</span></td>
+              <td><span class="badge grade-{{ q.grade|lower }}">{{ q.grade }}</span></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty"><div>↗</div><h3>还没有扫描记录</h3><p>点击“立即扫描”，第一批机会会显示在这里。</p></div>
+      {% endif %}
+    </section>
+    <footer><span>Steam 逐件接口限流时自动使用实时美元最低价与当日汇率换算；该来源不提供24h销量，会显示“—”。</span><span>7日指标由本机快照累计 · 只观察，不自动交易</span></footer>
+  </main>
+  <script>
+    const scanForm = document.getElementById('scan-form');
+    const scanButton = document.getElementById('scan-button');
+    const scanLoading = document.getElementById('scan-loading');
+    scanForm.addEventListener('submit', () => {
+      scanButton.disabled = true;
+      scanButton.setAttribute('aria-busy', 'true');
+      scanButton.querySelector('.button-label').textContent = '扫描中';
+      scanButton.querySelector('.button-icon').textContent = '…';
+      scanLoading.hidden = false;
+      scanLoading.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  </script>
+</body>
+</html>

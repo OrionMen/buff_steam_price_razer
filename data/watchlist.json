@@ -1,0 +1,10 @@
+[
+  {"chinese_name": "AK-47 | 红线（久经沙场）", "market_hash_name": "AK-47 | Redline (Field-Tested)", "buff_price": 92.50, "steam_price": 148.00, "steam_volume": 218},
+  {"chinese_name": "AWP | 二西莫夫（久经沙场）", "market_hash_name": "AWP | Asiimov (Field-Tested)", "buff_price": 505.00, "steam_price": 735.00, "steam_volume": 84},
+  {"chinese_name": "M4A1 消音型 | 印花集（久经沙场）", "market_hash_name": "M4A1-S | Printstream (Field-Tested)", "buff_price": 1030.00, "steam_price": 1448.00, "steam_volume": 31},
+  {"chinese_name": "USP 消音版 | 枪响人亡（久经沙场）", "market_hash_name": "USP-S | Kill Confirmed (Field-Tested)", "buff_price": 390.00, "steam_price": 585.00, "steam_volume": 42},
+  {"chinese_name": "沙漠之鹰 | 印花集（久经沙场）", "market_hash_name": "Desert Eagle | Printstream (Field-Tested)", "buff_price": 238.00, "steam_price": 338.00, "steam_volume": 67},
+  {"chinese_name": "格洛克 18 型 | 摩登时代（久经沙场）", "market_hash_name": "Glock-18 | Vogue (Field-Tested)", "buff_price": 31.80, "steam_price": 48.50, "steam_volume": 159},
+  {"chinese_name": "M4A4 | 皇帝（久经沙场）", "market_hash_name": "M4A4 | The Emperor (Field-Tested)", "buff_price": 82.00, "steam_price": 126.00, "steam_volume": 75},
+  {"chinese_name": "AK-47 | 墨岩（久经沙场）", "market_hash_name": "AK-47 | Slate (Field-Tested)", "buff_price": 21.20, "steam_price": 31.50, "steam_volume": 410}
+]
