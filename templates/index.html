@@ -22,7 +22,7 @@
 
     <section id="scan-loading" class="scan-loading" role="status" aria-live="polite" hidden>
       <span class="spinner" aria-hidden="true"></span>
-      <div><strong>正在扫描实时市场…</strong><small>正在抓取 Steam 热榜20件并匹配 BUFF，通常需要 1–2 分钟，请不要重复点击。</small></div>
+      <div><strong>正在扫描实时市场…</strong><small>正在抓取 Steam 热榜 {{ candidate_limit }} 件并匹配 BUFF，通常需要数分钟，限流时会等待重试，请不要重复点击。</small></div>
       <span class="loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>
     </section>
 
@@ -32,11 +32,19 @@
 
     <section class="status-grid" aria-label="扫描状态">
       <article><span>运行模式</span><strong>{{ '演示数据' if is_demo else '实时市场' }}</strong><small>{{ '无需 Cookie，可直接体验' if is_demo else 'BUFF + Steam CNY' }}</small></article>
-      <article><span>候选范围</span><strong>热榜 20 件</strong><small>候选池内按24h销量排序</small></article>
-      <article class="run-card"><span>最近扫描</span>{% if latest_run %}<strong><i class="run-dot run-{{ latest_run.status }}"></i>{{ latest_run.status_label }} · {{ latest_run.item_count }} 件</strong><small>{% if latest_run.finished_at_local %}{{ latest_run.finished_at_local }} 北京时间{% else %}扫描正在进行{% endif %}{% if latest_run.duration_seconds is not none %} · 耗时 {{ latest_run.duration_seconds }} 秒{% endif %}</small>{% if latest_run.status == 'failed' and latest_run.error %}<small class="run-error">{{ latest_run.error }}</small>{% endif %}{% else %}<strong>等待扫描</strong><small>还没有扫描记录</small>{% endif %}</article>
+      <article><span>候选范围</span><strong>热榜 {{ candidate_limit }} 件</strong><small>候选池内按24h销量排序</small></article>
+      <article class="run-card"><span>最近扫描</span>{% if latest_run %}<strong><i class="run-dot run-{{ latest_run.status }}"></i>{{ latest_run.status_label }} · {{ latest_run.item_count }} 件</strong><small>{% if latest_run.finished_at_local %}{{ latest_run.finished_at_local }} 北京时间{% else %}扫描正在进行{% endif %}{% if latest_run.duration_seconds is not none %} · 耗时 {{ latest_run.duration_seconds }} 秒{% endif %}</small>{% if latest_run.error %}<small class="run-error">{{ latest_run.error }}</small>{% endif %}{% else %}<strong>等待扫描</strong><small>还没有扫描记录</small>{% endif %}</article>
       <article><span>排序逻辑</span><strong>风险成本 ↑</strong><small>价差 + 波动 + 流动性</small></article>
     </section>
 
+    {% if latest_run and latest_run.details %}
+    {% set counts = latest_run.details.get('counts', {}) %}
+    <details class="notice"><summary>本轮扫描明细</summary>
+      <p>Steam 原始候选 {{ counts.get('steam_raw', '—') }} → 去重候选 {{ counts.get('steam_candidates', '—') }} → 报价成功 {{ counts.get('steam_success', '—') }} → BUFF 匹配 {{ counts.get('buff_matched', '—') }} → 本轮入库 {{ counts.get('saved', 0) }}；展示 {{ counts.get('displayed', '—') }} 件（可能含旧报价）。</p>
+      <p>BUFF 查询 {{ counts.get('buff_attempted', '—') }} 个，原始返回 {{ counts.get('buff_raw', '—') }} 条，未查询 {{ counts.get('buff_unattempted', '—') }} 个。</p>
+      {% for issue in latest_run.details.get('issues', []) %}<div>{{ issue }}</div>{% endfor %}
+    </details>
+    {% endif %}
     <section class="board">
       <div class="board-head">
         <div><span class="kicker">TOP 50</span><h2>当前价差机会</h2></div>
@@ -49,7 +57,7 @@
           <tbody>
           {% for q in quotes %}
             <tr>
-              <td><div class="item"><span class="rank">{{ '%02d'|format(loop.index) }}</span><span class="names"><strong>{{ q.chinese_name or q.market_hash_name }}</strong>{% if q.chinese_name and q.chinese_name != q.market_hash_name %}<small>{{ q.market_hash_name }}</small>{% endif %}</span></div></td>
+              <td><div class="item"><span class="rank">{{ '%02d'|format(loop.index) }}</span><span class="names">{% if latest_run and q.captured_at < latest_run.started_at %}<small>旧报价 · {{ q.captured_at }}（UTC）</small>{% endif %}<strong>{{ q.chinese_name or q.market_hash_name }}</strong>{% if q.chinese_name and q.chinese_name != q.market_hash_name %}<small>{{ q.market_hash_name }}</small>{% endif %}</span></div></td>
               <td>¥{{ '%.2f'|format(q.buff_price) }}</td>
               <td>¥{{ '%.2f'|format(q.steam_price) }}{% if q.steam_source == 'search_usd_fx' %}<small class="samples">美元换算</small>{% endif %}</td>
               <td class="fee">−¥{{ '%.2f'|format(q.platform_fee) }}<small class="samples">Steam 预计扣除</small></td>

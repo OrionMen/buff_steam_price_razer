@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -15,7 +16,8 @@ def present_run(row):
     if row is None:
         return None
     run = dict(row)
-    labels = {"success": "成功", "failed": "失败", "running": "进行中"}
+    labels = {"success": "成功", "partial": "部分完成", "failed": "失败", "running": "进行中"}
+    run["details"] = json.loads(run.get("details") or "{}")
     run["status_label"] = labels.get(run["status"], run["status"])
     if run.get("finished_at"):
         finished = datetime.fromisoformat(run["finished_at"])
@@ -48,13 +50,18 @@ def create_app() -> Flask:
             is_demo=settings.is_demo,
             min_price=settings.buff_min_price,
             max_price=settings.buff_max_price,
+            candidate_limit=settings.buff_page_size,
         )
 
     @app.post("/scan")
     def scan():
         try:
             count = service.scan()
-            flash(f"扫描完成，成功匹配 {count} 件饰品。", "success")
+            run = database.latest_run()
+            if run["status"] == "partial":
+                flash(f"扫描部分完成，本轮更新 {count} 件；未更新商品保留旧报价（如有）。", "warning")
+            else:
+                flash(f"扫描完成，成功匹配 {count} 件饰品。", "success")
         except Exception as exc:
             flash(str(exc), "error")
         return redirect(url_for("index"))

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -69,6 +70,9 @@ class Database:
         path.parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as connection:
             connection.executescript(SCHEMA)
+            run_columns = {row["name"] for row in connection.execute("PRAGMA table_info(scan_runs)")}
+            if "details" not in run_columns:
+                connection.execute("ALTER TABLE scan_runs ADD COLUMN details TEXT")
             columns = {row["name"] for row in connection.execute("PRAGMA table_info(latest_quotes)")}
             if "chinese_name" not in columns:
                 connection.execute("ALTER TABLE latest_quotes ADD COLUMN chinese_name TEXT")
@@ -77,10 +81,15 @@ class Database:
             if "steam_listings" not in columns:
                 connection.execute("ALTER TABLE latest_quotes ADD COLUMN steam_listings INTEGER")
 
-    def connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def connect(self):
         connection = sqlite3.connect(self.path, timeout=10)
         connection.row_factory = sqlite3.Row
-        return connection
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
 
     def start_run(self, mode: str) -> int:
         with self.connect() as connection:
@@ -90,14 +99,14 @@ class Database:
             )
             return int(cursor.lastrowid)
 
-    def finish_run(self, run_id: int, status: str, count: int, error: str | None = None) -> None:
+    def finish_run(self, run_id: int, status: str, count: int, error: str | None = None, details: dict | None = None) -> None:
         with self.connect() as connection:
             connection.execute(
-                "UPDATE scan_runs SET finished_at=?, status=?, item_count=?, error=? WHERE id=?",
-                (utc_now(), status, count, error, run_id),
+                "UPDATE scan_runs SET finished_at=?, status=?, item_count=?, error=?, details=? WHERE id=?",
+                (utc_now(), status, count, error, json.dumps(details, ensure_ascii=False) if details else None, run_id),
             )
 
-    def save_quotes(self, run_id: int, quotes: list[dict[str, Any]]) -> None:
+    def save_quotes(self, run_id: int, quotes: list[dict[str, Any]], replace: bool = False) -> None:
         captured_at = utc_now()
         history_sql = """INSERT INTO price_history(
             scan_id, captured_at, market_hash_name, buff_goods_id, buff_price,
@@ -117,6 +126,8 @@ class Database:
             balance_return=excluded.balance_return, grade=excluded.grade,
             captured_at=excluded.captured_at"""
         with self.connect() as connection:
+            if replace:
+                connection.execute("DELETE FROM latest_quotes")
             for quote in quotes:
                 common = (
                     quote["market_hash_name"], quote.get("buff_goods_id"), quote["buff_price"],

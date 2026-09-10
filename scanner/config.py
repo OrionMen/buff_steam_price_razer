@@ -30,6 +30,7 @@ class Settings:
     cache_ttl_seconds: int
     database_path: Path
     usd_cny_fallback_rate: float = 7.0
+    buff_request_interval: float = 5.0
 
     @property
     def is_demo(self) -> bool:
@@ -51,4 +52,5 @@ def load_settings() -> Settings:
         cache_ttl_seconds=max(60, int(os.getenv("CACHE_TTL_SECONDS", "900"))),
         database_path=database_path,
         usd_cny_fallback_rate=float(os.getenv("USD_CNY_FALLBACK_RATE", "7.0")),
+        buff_request_interval=max(5.0, float(os.getenv("BUFF_REQUEST_INTERVAL", "5.0"))),
     )
