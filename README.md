@@ -11,7 +11,7 @@
 需要先安装 Python 3.10 或更高版本，并在安装 Python 时勾选“Add Python to PATH”。Git for Windows 自带的 Git Bash 和 `curl` 可直接使用。
 
 ```bash
-git clone <仓库地址>
+git clone https://github.com/OrionMen/buff_steam_price_razer.git
 cd cs2-buff-steam-radar
 bash start-windows.sh
 ```
